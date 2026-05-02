@@ -1,16 +1,14 @@
 #include "../include/umem.h"
 
-#include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 #include <sys/mman.h>
-#include <unistd.h>
 
 int umem_create(struct umem_info *u)
 {
     int ret;
 
-    void *buffer = mmap(NULL,
+        void *buffer = mmap(NULL,
                         UMEM_SIZE,
                         PROT_READ | PROT_WRITE,
                         MAP_PRIVATE | MAP_ANONYMOUS | MAP_POPULATE,
@@ -39,7 +37,7 @@ int umem_create(struct umem_info *u)
 
     if (ret)
     {
-        fprintf(stderr, "xsk_umem__create failed\n");
+        fprintf(stderr, "xsk_umem__create failed: %s\n", strerror(-ret));
         return ret;
     }
 

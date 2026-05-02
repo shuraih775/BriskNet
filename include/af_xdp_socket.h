@@ -13,6 +13,7 @@ struct xsk_socket_info
 
     struct umem_info *umem;
 
+    uint32_t queue_id;
     uint32_t outstanding_tx;
 };
 

@@ -2,3 +2,6 @@ build/
 *.o
 *.out
 main
+*.log
+**/benchmark/*.txt
+brisknet

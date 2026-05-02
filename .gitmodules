@@ -1,0 +1,3 @@
+[submodule "external/lfqueue"]
+	path = external/lfqueue
+	url = https://github.com/shuraih775/LFQueue.git

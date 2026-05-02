@@ -5,7 +5,19 @@
 #include <string.h>
 #include <errno.h>
 #include <bpf/bpf.h>
+#include <linux/if_link.h>
 #include <net/if.h>
+
+#ifndef DEBUG
+#define DEBUG 0
+#endif
+
+#define DBG_PRINT(fmt, ...)                               \
+    do                                                    \
+    {                                                     \
+        if (DEBUG)                                        \
+            fprintf(stderr, "[DBG] " fmt, ##__VA_ARGS__); \
+    } while (0)
 
 int xsk_socket_create(struct xsk_socket_info **xsk_ptr,
                       struct umem_info *umem,
@@ -14,7 +26,6 @@ int xsk_socket_create(struct xsk_socket_info **xsk_ptr,
 {
     struct xsk_socket_config cfg;
     struct xsk_socket_info *xsk;
-    int ifindex;
     int ret;
 
     xsk = calloc(1, sizeof(*xsk));
@@ -23,10 +34,10 @@ int xsk_socket_create(struct xsk_socket_info **xsk_ptr,
 
     xsk->umem = umem;
 
-    ifindex = if_nametoindex(ifname);
-    if (!ifindex)
+    if (!if_nametoindex(ifname))
     {
         perror("if_nametoindex failed");
+        free(xsk);
         return -1;
     }
 
@@ -34,7 +45,7 @@ int xsk_socket_create(struct xsk_socket_info **xsk_ptr,
     cfg.rx_size = RX_RING_SIZE;
     cfg.tx_size = TX_RING_SIZE;
     cfg.libbpf_flags = 0;
-    cfg.xdp_flags = (1U << 1);
+    cfg.xdp_flags = XDP_FLAGS_SKB_MODE;
     cfg.bind_flags = XDP_USE_NEED_WAKEUP;
 
     ret = xsk_socket__create(&xsk->xsk,
@@ -54,18 +65,25 @@ int xsk_socket_create(struct xsk_socket_info **xsk_ptr,
     }
 
     xsk->outstanding_tx = 0;
+    xsk->queue_id = queue_id;
 
     *xsk_ptr = xsk;
 
     int fd = xsk_socket__fd(xsk->xsk);
+    int map_fd = bpf_obj_get("/sys/fs/bpf/xsks_map");
 
-    int map_fd = bpf_obj_get("/sys/fs/bpf/xsks_map"); // or from skeleton later
-
-    int key = queue_id;
-
-    if (bpf_map_update_elem(map_fd, &key, &fd, 0) < 0)
+    if (map_fd < 0)
     {
-        perror("bpf_map_update_elem failed");
+        fprintf(stderr, "setting the map failed: %s\n", strerror(errno));
+    }
+
+    DBG_PRINT("queue_id: %u\n", queue_id);
+    DBG_PRINT("socket fd: %d\n", fd);
+    DBG_PRINT("map_fd: %d\n", map_fd);
+
+    if (bpf_map_update_elem(map_fd, &queue_id, &fd, 0) < 0)
+    {
+        fprintf(stderr, "bpf_map_update_elem failed: %s\n", strerror(errno));
     }
 
     return 0;
